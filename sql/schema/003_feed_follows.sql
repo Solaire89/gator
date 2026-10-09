@@ -1,17 +1,20 @@
--- +goose up
+-- +goose Up
 CREATE TABLE feed_follows(
     id UUID PRIMARY KEY,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    CONSTRAINT fk_user_id
+    user_id UUID NOT NULL,
+    feed_id UUID NOT NULL,
+    CONSTRAINT feed_follows_user_id_fkey
         FOREIGN KEY (user_id)
         REFERENCES users(id)
         ON DELETE CASCADE,
-    CONSTRAINT fk_feed_id
+    CONSTRAINT feed_follows_feed_id_fkey
         FOREIGN KEY (feed_id)
         REFERENCES feeds(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT unique_user_feed UNIQUE (user_id, feed_id)
 );
 
--- +goose down
+-- +goose Down
 DROP TABLE feed_follows;
