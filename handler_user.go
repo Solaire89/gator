@@ -87,15 +87,19 @@ func handlerUsers(s *state, cmd command) error {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	if len(cmd.Args) != 0 {
-		return fmt.Errorf("usage: %s", cmd.Name)
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: %s <time>", cmd.Name)
 	}
-	feed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	inputTime := cmd.Args[0]
+	timeBetweenRequests, err := time.ParseDuration(inputTime)
 	if err != nil {
-		return fmt.Errorf("couldn't fetch feed: %w", err)
+		return fmt.Errorf("invalid duration: %w", err)
 	}
-	fmt.Printf("Feed: %+v\n", feed)
-	return nil
+	log.Printf("Collecting feeds every %v", timeBetweenRequests)
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func printFeed(feed database.Feed, user database.User) {

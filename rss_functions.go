@@ -3,10 +3,14 @@ package main
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
 	"time"
+
+	"github.com/Solaire89/gator/internal/database"
 )
 
 type RSSFeed struct {
@@ -55,4 +59,30 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 	}
 
 	return &rssFeed, nil
+}
+
+func scrapeFeeds(s *state) {
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		log.Println("couldn't get next feeds to fetch", err)
+		return
+	}
+	log.Println("Found a feed to fetch!")
+	scrapeFeed(s.db, feed)
+}
+
+func scrapeFeed(db *database.Queries, feed database.Feed) {
+	_, err := db.MarkFeedFetched(context.Background(), feed.ID)
+	if err != nil {
+		log.Println("error getting feed: ", err)
+	}
+	feedData, err := fetchFeed(context.Background(), feed.FeedUrl)
+	if err != nil {
+		log.Printf("error getting feed: %w", err)
+		return
+	}
+	for _, feed := range feedData.Channel.Item {
+		fmt.Printf("Found post: %s\n", feed.Title)
+	}
+	log.Printf("Feed %s collected, %v posts found", feed.FeedName, len(feedData.Channel.Item))
 }
