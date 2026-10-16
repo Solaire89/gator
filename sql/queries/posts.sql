@@ -1,4 +1,4 @@
--- name: createPost :one
+-- name: CreatePost :one
 INSERT INTO posts(
     id, 
     created_at, 
@@ -12,7 +12,7 @@ INSERT INTO posts(
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
--- name: getPostsForUser :many
+-- name: GetPostsForUser :many
 SELECT *
 FROM posts
 JOIN feeds ON posts.feed_id = feeds.id

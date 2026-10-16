@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
-	"fmt"
+	"errors"
 	"html"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/Solaire89/gator/internal/database"
 )
@@ -78,11 +82,47 @@ func scrapeFeed(db *database.Queries, feed database.Feed) {
 	}
 	feedData, err := fetchFeed(context.Background(), feed.FeedUrl)
 	if err != nil {
-		log.Printf("error getting feed: %w", err)
+		log.Printf("couldn't collect feed %s: %v\n", feed.FeedName, err)
 		return
 	}
-	for _, feed := range feedData.Channel.Item {
-		fmt.Printf("Found post: %s\n", feed.Title)
+
+	for _, rssItem := range feedData.Channel.Item {
+		var nullTime sql.NullTime
+		parseTime, err := time.Parse(time.RFC1123, rssItem.PubDate)
+		if err != nil {
+			log.Printf("error parsing time: %v\n", err)
+		} else {
+			nullTime.Time = parseTime
+			nullTime.Valid = true
+		}
+		now := time.Now()
+		recordTime := sql.NullTime{
+			Time:  now,
+			Valid: true,
+		}
+		_, err = db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   recordTime,
+			UpdatedAt:   recordTime,
+			Title:       rssItem.Title,
+			Url:         rssItem.Link,
+			Description: rssItem.Description,
+			PublishedAt: nullTime,
+			FeedID:      feed.ID,
+		})
+		var pqError *pq.Error
+		if errors.As(err, &pqError) {
+			if pqError.Code == "23505" {
+				continue
+			} else {
+				log.Printf("error creating post: %v\n", err)
+				continue
+			}
+		}
+		if err != nil {
+			log.Printf("error creating post: %v\n", err)
+			continue
+		}
 	}
-	log.Printf("Feed %s collected, %v posts found", feed.FeedName, len(feedData.Channel.Item))
+	log.Printf("Feed %s collected, %v posts found\n", feed.FeedName, len(feedData.Channel.Item))
 }
