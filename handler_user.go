@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/Solaire89/gator/internal/database"
@@ -156,9 +157,11 @@ func handlerFeeds(s *state, cmd command) error {
 		return fmt.Errorf("failed to find user: %w", err)
 	}
 	for _, user := range users {
+		fmt.Println("=====================================")
 		fmt.Printf("Feed Name: %s\n", user.FeedName)
 		fmt.Printf("Feed URL: %s\n", user.FeedUrl)
 		fmt.Printf("User who created feed: %s\n", user.UserName)
+		fmt.Println("=====================================")
 	}
 
 	return nil
@@ -209,7 +212,7 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 	return nil
 }
 
-func unfollowFeedCommand(s *state, cmd command, user database.User) error {
+func handlerUnfollowFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: %s <feed url>", cmd.Name)
 	}
@@ -224,5 +227,44 @@ func unfollowFeedCommand(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("couldn't delete feed follow: %w", err)
 	}
 	fmt.Printf("Successfully unfollowed %s\n", cmd.Args[0])
+	return nil
+}
+
+func printPostsFromUserParams(post database.GetPostsForUserRow) {
+	fmt.Printf(" * Post ID:	%v\n", post.ID)
+	fmt.Printf(" * Created at:	%v\n", post.CreatedAt)
+	fmt.Printf(" * Updated at:	%v\n", post.UpdatedAt)
+	fmt.Printf(" * Title:	%v\n", post.Title)
+	fmt.Printf(" * URL:	%v\n", post.Url)
+	fmt.Printf(" * Description:	%v\n", post.Description)
+	fmt.Printf(" * Published at:	%v\n", post.PublishedAt)
+	fmt.Printf(" * Feed ID:	%v\n", post.FeedID)
+
+}
+
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	limit := 2
+	if len(cmd.Args) == 1 {
+		if specifiedLimit, err := strconv.Atoi(cmd.Args[0]); err == nil {
+			limit = specifiedLimit
+		} else {
+			return fmt.Errorf("error getting limit value: %w", err)
+		}
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	})
+
+	if err != nil {
+		return fmt.Errorf("error getting posts: %w", err)
+	}
+
+	fmt.Printf("Successfully obtained posts: \n")
+	for _, post := range posts {
+		fmt.Println("=====================================")
+		printPostsFromUserParams(post)
+		fmt.Println("=====================================")
+	}
 	return nil
 }
